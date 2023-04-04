@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useFormik } from "formik";
 import "./App.css";
 
@@ -317,6 +317,26 @@ const formConfig = {
 };
 
 const TaxResourceForm = () => {
+  const [search, setSearch] = useState("");
+  const [categories, setCategories] = useState({});
+
+  useEffect(() => {
+    const newCategory = { uncategorized: [] };
+
+    apiResponse.forEach((item) => {
+      if (item.category) {
+        if (!newCategory[item.category.name]) {
+          newCategory[item.category.name] = [];
+        }
+        newCategory[item.category.name].push(item);
+      } else {
+        newCategory.uncategorized.push(item);
+      }
+    });
+
+    setCategories(newCategory);
+  }, []);
+
   const formik = useFormik(formConfig);
 
   const handleSelectAll = (e) => {
@@ -349,6 +369,22 @@ const TaxResourceForm = () => {
     } else {
       applicable_items = applicable_items.filter(
         (id) => id !== parseInt(value)
+      );
+    }
+    formik.setFieldValue("applicable_items", applicable_items);
+  };
+
+  const handleSelectCategory = (e) => {
+    const { value, checked } = e.target;
+    let applicable_items = [...formik.values.applicable_items];
+    if (checked) {
+      applicable_items = [
+        ...applicable_items,
+        ...categories[value].map((item) => item.id),
+      ];
+    } else {
+      applicable_items = applicable_items.filter(
+        (id) => !categories[value].map((item) => item.id).includes(id)
       );
     }
     formik.setFieldValue("applicable_items", applicable_items);
@@ -409,22 +445,79 @@ const TaxResourceForm = () => {
         <br />
         <hr />
         <div className="check-list">
-          {apiResponse.map((item) => (
-            <label key={item.id}>
-              <input
-                className="checkbox"
-                type="checkbox"
-                name="applicable_items"
-                value={item.id}
-                checked={
-                  formik.values.applied_to === "all" ||
-                  formik.values.applicable_items.includes(item.id)
-                }
-                onChange={handleSelectItem}
-              />
-              {item.name}
-            </label>
-          ))}
+          <input
+            className="search"
+            type="search"
+            placeholder="Search items"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+
+          {search.length > 0 ? (
+            <>
+              {apiResponse
+                .filter((item) =>
+                  item.name.toLowerCase().includes(search.toLowerCase())
+                )
+                .map((item) => (
+                  <div key={item.id}>
+                    <input
+                      type="checkbox"
+                      id={item.id}
+                      name="applicable_items"
+                      value={item.id}
+                      checked={formik.values.applicable_items.includes(item.id)}
+                      onChange={handleSelectItem}
+                    />
+                    <label htmlFor={item.id}>{item.name}</label>
+                  </div>
+                ))}
+            </>
+          ) : (
+            <>
+              {Object.keys(categories).length > 1 &&
+                Object.keys(categories)
+                  .sort()
+                  .map((category) => (
+                    <div key={category} style={{ width: "100%" }}>
+                      <div className="category-heading">
+                        <input
+                          type="checkbox"
+                          id={category}
+                          name="applicable_items"
+                          value={category}
+                          checked={
+                            formik.values.applied_to === "all" ||
+                            categories[category].every((item) =>
+                              formik.values.applicable_items.includes(item.id)
+                            )
+                          }
+                          onChange={handleSelectCategory}
+                        />
+                        <label htmlFor={category}>
+                          {category === "uncategorized" ? "" : category}
+                        </label>
+                      </div>
+                      {categories[category].map((item) => (
+                        <div className="cat-list" key={item.id}>
+                          <input
+                            type="checkbox"
+                            id={item.id}
+                            name="applicable_items"
+                            value={item.id}
+                            checked={
+                              formik.values.applied_to === "all" ||
+                              formik.values.applicable_items.includes(item.id)
+                            }
+                            onChange={handleSelectItem}
+                          />
+                          <label htmlFor={item.id}>{item.name}</label>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+            </>
+          )}
         </div>
         <br />
         <hr />
